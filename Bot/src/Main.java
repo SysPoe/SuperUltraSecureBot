@@ -111,7 +111,7 @@ public class Main {
         api.addServerVoiceChannelMemberJoinListener(event -> {
              long id = event.getUser().getId();
              try {
-                 if (userIsVCBlocked(id)) event.getUser().;
+                 if (userIsVCBlocked(id)) event.getUser().deafen(event.getServer(), "VC Blocked");
              } catch (Exception e){
                  System.err.println(e.getMessage());
                  e.printStackTrace();
