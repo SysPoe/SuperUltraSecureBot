@@ -192,7 +192,7 @@ public class Main {
                                     slashCommandInteraction.createImmediateResponder().setContent("Muted <@"+id+">.").respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
-                            } else slashCommandInteraction.createImmediateResponder().setContent(user + " is already muted!").respond();
+                            } else slashCommandInteraction.createImmediateResponder().setContent("<@" + id + "> is already muted!").respond();
                         } else {
                             slashCommandInteraction.createImmediateResponder().setContent("Unable to mute user. Please check the console.").respond();
                             System.err.println("Main.config is null!");
@@ -238,7 +238,7 @@ public class Main {
                                 config.bypass = oA2sA(bypass.toArray());
                                 slashCommandInteraction.createImmediateResponder().setContent("Added <@"+id+"> to the bypass list.").respond();
                                 save();
-                            } else slashCommandInteraction.createImmediateResponder().setContent(user + " is already in the bypass list!").respond();
+                            } else slashCommandInteraction.createImmediateResponder().setContent("<@" + id + "> is already in the bypass list!").respond();
                         } else {
                             slashCommandInteraction.createImmediateResponder().setContent("Unable to add user to the bypass list. Please check the console.").respond();
                             System.err.println("Main.config is null!");
@@ -277,11 +277,17 @@ public class Main {
                     try {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
-                            String user = api.getUserById(Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get())).get().getName();
+                            String user = api.getUserById(id).get().getName();
                             if (!List.of(config.bypass).contains(user.toLowerCase())) {
                                 if (!userHasAdministrator(id) && !userIsBypassing(id)) {
-                                    if (cmdName.equals("kick")) kick(id);
-                                    if (cmdName.equals("ban")) ban(id);
+                                    if (cmdName.equals("kick")) {
+                                        kick(id, slashCommandInteraction.getServer().get());
+                                        slashCommandInteraction.createImmediateResponder().setContent("Kicked " + user).respond();
+                                    }
+                                    if (cmdName.equals("ban")) {
+                                        ban(id, slashCommandInteraction.getServer().get());
+                                        slashCommandInteraction.createImmediateResponder().setContent("Banned " + user).respond();
+                                    }
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You cannot " + cmdName + " <@"+id+">!").respond();
                             } else slashCommandInteraction.createImmediateResponder().setContent("You cannot " + cmdName + " <@"+id+">!").respond();
                         } else {
@@ -305,7 +311,7 @@ public class Main {
                                 config.novoicechat = oA2sA(novoicechat.toArray());
                                 slashCommandInteraction.createImmediateResponder().setContent("Added <@"+id+"> to the block list.").respond();
                                 save();
-                            } else slashCommandInteraction.createImmediateResponder().setContent(user + " is already in the block list!").respond();
+                            } else slashCommandInteraction.createImmediateResponder().setContent("<@" + id + "> is already in the block list!").respond();
                         } else {
                             slashCommandInteraction.createImmediateResponder().setContent("Unable to add user to the block list. Please check the console.").respond();
                             System.err.println("Main.config is null!");
@@ -353,11 +359,11 @@ public class Main {
             }
         });
     }
-    private static void kick(long id) throws ExecutionException, InterruptedException {
-        api.getServerById(id).get().kickUser(api.getUserById(id).get());
+    private static void kick(long id, Server server) throws ExecutionException, InterruptedException {
+        server.kickUser(api.getUserById(id).get());
     }
-    private static void ban(long id) throws ExecutionException, InterruptedException {
-        api.getServerById(id).get().banUser( api.getUserById(id).get());
+    private static void ban(long id, Server server) throws ExecutionException, InterruptedException {
+        server.banUser( api.getUserById(id).get());
     }
     private static boolean userIsVCBlocked(long id) throws ExecutionException, InterruptedException {
         return List.of(config.novoicechat).contains(api.getUserById(id).get().getName().toLowerCase(Locale.ROOT));
