@@ -20,7 +20,7 @@ public class Main {
     static final long serverId = 875516599417831505L;
     public static void main(String[] args) throws ExecutionException, InterruptedException {
         api = new DiscordApiBuilder()
-                .setToken("ODc1NTAwNjE4ODU1MzgzMDUx.YRWbfQ.5MXflvGJ8SMN8rc6Ruz5mZgoyEQ")
+                .setToken(Token.token)
                 .login().join();
 
         System.out.println("Loading config...");
