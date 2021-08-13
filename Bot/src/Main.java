@@ -27,13 +27,16 @@ public class Main {
         loadConfig();
         System.out.println("Loading listeners...");
         loadListeners();
-        System.out.println("Adding shutdown listener...");
-        addShutdownListener();
-        System.out.println("Registering slash commands...");
-        registerSlashCommands();
+        System.out.println("Loaded listeners.");
+        // System.out.println("Adding shutdown listener...");
+        // addShutdownListener();
+        // System.out.println("Added shutdown listener.");
+        // System.out.println("Registering slash commands...");
+        // registerSlashCommands();
+        // System.out.println("Registered slash commands.");
     }
     private static void addShutdownListener() {
-        Runtime.getRuntime().addShutdownHook(new Thread(Main::save));
+        // Runtime.getRuntime().addShutdownHook(new Thread(Main::save));
     }
     private static void save() {
         try {
@@ -99,19 +102,24 @@ public class Main {
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: novc");
-
         SlashCommand yesvc = SlashCommand.with("yesvc", "Allows the specified user to enter a voice chat.",
                         List.of(
                                 SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to allow")))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: yesvc");
+        SlashCommand clear = SlashCommand.with("clear", "Clears the messages in the current text channel.",
+                        List.of(
+                                SlashCommandOption.createWithOptions(SlashCommandOptionType.INTEGER, "Messages", "The number of messages to clear")))
+                .createForServer(server)
+                .join();
+        System.out.println("Registered command: clear");
     }
     private static void loadListeners() {
         api.addServerVoiceChannelMemberJoinListener(event -> {
              long id = event.getUser().getId();
              try {
-                 if (userIsVCBlocked(id)) event.getUser().deafen(event.getServer(), "VC Blocked");
+                 if (userIsVCBlocked(id)) event.getServer().kickUserFromVoiceChannel(event.getUser());
              } catch (Exception e){
                  System.err.println(e.getMessage());
                  e.printStackTrace();
@@ -135,6 +143,20 @@ public class Main {
                             .respond();
                     break;
                 }
+                case "clear": {
+                    try {
+                        long id = slashCommandInteraction.getUser().getId();
+                            if (userHasAdministrator(id) || userIsBypassing(id)) {
+                                slashCommandInteraction.getChannel().get().getMessages(slashCommandInteraction.getFirstOptionIntValue().get()).get().deleteAll().join();
+                                slashCommandInteraction.createImmediateResponder().setContent("Channel cleared").respond();
+                            }
+                            else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
+                    } catch (Exception e) {
+                        System.err.println(e.getMessage());
+                        e.printStackTrace(System.err);
+                    }
+                    break;
+                }
                 case "nick": {
                     try {
                         if (config != null) {
@@ -144,9 +166,9 @@ public class Main {
                             if (!List.of(config.bypass).contains(user.toLowerCase())) {
                                 if (!userHasAdministrator(id) && !userIsBypassing(id)) {
                                     api.getUserById(id).get().updateNickname(slashCommandInteraction.getServer().get(), newName);
-                                    slashCommandInteraction.createImmediateResponder().setContent("Set "+user+"'s nickname to "+newName).respond();
+                                    slashCommandInteraction.createImmediateResponder().setContent("Set <@"+id+">'s nickname to "+newName).respond();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
-                            } else slashCommandInteraction.createImmediateResponder().setContent("You cannot do that! " + user + " is on the bypass list!").respond();
+                            } else slashCommandInteraction.createImmediateResponder().setContent("You cannot do that! <@"+id+"> is on the bypass list!").respond();
                         } else {
                             slashCommandInteraction.createImmediateResponder().setContent("Unable to change the nickname of that user. Please check the console.").respond();
                             System.err.println("Main.config is null!");
@@ -167,7 +189,7 @@ public class Main {
                                     ArrayList<String> muted = new ArrayList<>(List.of(config.muted));
                                     muted.add(user.toLowerCase());
                                     config.muted = oA2sA(muted.toArray());
-                                    slashCommandInteraction.createImmediateResponder().setContent("Muted " + user + ".").respond();
+                                    slashCommandInteraction.createImmediateResponder().setContent("Muted <@"+id+">.").respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
                             } else slashCommandInteraction.createImmediateResponder().setContent(user + " is already muted!").respond();
@@ -191,7 +213,7 @@ public class Main {
                                     ArrayList<String> muted = new ArrayList<>(List.of(config.muted));
                                     muted.remove(user.toLowerCase());
                                     config.muted = oA2sA(muted.toArray());
-                                    slashCommandInteraction.createImmediateResponder().setContent("Un-muted " + user + ".").respond();
+                                    slashCommandInteraction.createImmediateResponder().setContent("Un-muted <@"+id+">.").respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
                             } else slashCommandInteraction.createImmediateResponder().setContent("That user isn't muted!").respond();
@@ -214,7 +236,7 @@ public class Main {
                                 ArrayList<String> bypass = new ArrayList<>(List.of(config.bypass));
                                 bypass.add(user.toLowerCase());
                                 config.bypass = oA2sA(bypass.toArray());
-                                slashCommandInteraction.createImmediateResponder().setContent("Added " + user + " to the bypass list.").respond();
+                                slashCommandInteraction.createImmediateResponder().setContent("Added <@"+id+"> to the bypass list.").respond();
                                 save();
                             } else slashCommandInteraction.createImmediateResponder().setContent(user + " is already in the bypass list!").respond();
                         } else {
@@ -237,7 +259,7 @@ public class Main {
                                     ArrayList<String> bypass = new ArrayList<>(List.of(config.bypass));
                                     bypass.remove(user.toLowerCase());
                                     config.bypass = oA2sA(bypass.toArray());
-                                    slashCommandInteraction.createImmediateResponder().setContent("Removed " + user + " from the bypass list.").respond();
+                                    slashCommandInteraction.createImmediateResponder().setContent("Removed <@"+id+"> from the bypass list.").respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
                             } else slashCommandInteraction.createImmediateResponder().setContent("That user isn't on the bypass list!").respond();
@@ -260,8 +282,8 @@ public class Main {
                                 if (!userHasAdministrator(id) && !userIsBypassing(id)) {
                                     if (cmdName.equals("kick")) kick(id);
                                     if (cmdName.equals("ban")) ban(id);
-                                } else slashCommandInteraction.createImmediateResponder().setContent("You cannot " + cmdName + " " + user + "!").respond();
-                            } else slashCommandInteraction.createImmediateResponder().setContent("You cannot " + cmdName + " " + user + "!").respond();
+                                } else slashCommandInteraction.createImmediateResponder().setContent("You cannot " + cmdName + " <@"+id+">!").respond();
+                            } else slashCommandInteraction.createImmediateResponder().setContent("You cannot " + cmdName + " <@"+id+">!").respond();
                         } else {
                             slashCommandInteraction.createImmediateResponder().setContent("Unable to " + cmdName + " user! Please check the console.").respond();
                             System.err.println("Main.config is null!");
@@ -281,7 +303,7 @@ public class Main {
                                 ArrayList<String> novoicechat = new ArrayList<>(List.of(config.novoicechat));
                                 novoicechat.add(user.toLowerCase());
                                 config.novoicechat = oA2sA(novoicechat.toArray());
-                                slashCommandInteraction.createImmediateResponder().setContent("Added " + user + " to the block list.").respond();
+                                slashCommandInteraction.createImmediateResponder().setContent("Added <@"+id+"> to the block list.").respond();
                                 save();
                             } else slashCommandInteraction.createImmediateResponder().setContent(user + " is already in the block list!").respond();
                         } else {
@@ -304,7 +326,7 @@ public class Main {
                                     ArrayList<String> novoicechat = new ArrayList<>(List.of(config.novoicechat));
                                     novoicechat.remove(user.toLowerCase());
                                     config.novoicechat = oA2sA(novoicechat.toArray());
-                                    slashCommandInteraction.createImmediateResponder().setContent("Removed " + user + " from the block list.").respond();
+                                    slashCommandInteraction.createImmediateResponder().setContent("Removed <@"+id+"> from the block list.").respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
                             } else slashCommandInteraction.createImmediateResponder().setContent("That user isn't on the block list!").respond();
@@ -351,7 +373,7 @@ public class Main {
                         .get())
                 .forEach(role ->
                 {
-                    if(role.getPermissions().getAllowedPermission().contains(PermissionType.ADMINISTRATOR)) {
+                    if(role.getAllowedPermissions().contains(PermissionType.ADMINISTRATOR)) {
                         hasPerms.set(true);
                     }
                 });
