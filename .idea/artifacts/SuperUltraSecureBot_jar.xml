@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="SuperUltraSecureBot:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/SuperUltraSecureBot_jar</output-path>
+    <root id="archive" name="SuperUltraSecureBot.jar">
+      <element id="module-output" name="Bot" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/Bot/Dependencies/gson-2.8.7.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/Bot/Dependencies/javacord-3.3.2-shaded.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
