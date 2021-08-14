@@ -3,7 +3,6 @@ import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.permission.PermissionType;
 import org.javacord.api.entity.server.Server;
-import org.javacord.api.event.channel.server.voice.ServerVoiceChannelMemberJoinEvent;
 import org.javacord.api.interaction.*;
 
 import java.io.File;
@@ -31,9 +30,9 @@ public class Main {
         // System.out.println("Adding shutdown listener...");
         // addShutdownListener();
         // System.out.println("Added shutdown listener.");
-        // System.out.println("Registering slash commands...");
-        // registerSlashCommands();
-        // System.out.println("Registered slash commands.");
+        System.out.println("Registering slash commands...");
+        registerSlashCommands();
+        System.out.println("Registered slash commands.");
     }
     private static void addShutdownListener() {
         // Runtime.getRuntime().addShutdownHook(new Thread(Main::save));
@@ -58,59 +57,59 @@ public class Main {
         System.out.println("Registered command: ping");
 
         SlashCommand mute = SlashCommand.with("mute", "Mutes a user",
-                        List.of(SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to mute")))
+                        List.of(SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to mute", true)))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: mute");
         SlashCommand unmute = SlashCommand.with("unmute", "Un-mutes a user",
-                        List.of(SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to un-mute")))
+                        List.of(SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to un-mute", true)))
                 .createForServer(server)
                 .join();
 
         System.out.println("Registered command: unmute");
         SlashCommand bypass = SlashCommand.with("bypass", "Adds a user to the bypass list, meaning that they cannot be muted, kicked, or banned.",
-                        List.of(SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to add")))
+                        List.of(SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to add", true)))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: bypass");
         SlashCommand unbypass = SlashCommand.with("unbypass", "Removes a user to the bypass list, meaning that they will no longer have protection.",
-                        List.of(SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to remove")))
+                        List.of(SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to remove", true)))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: unbypass");
         SlashCommand kick = SlashCommand.with("kick", "Kicks the specified user.",
-                        List.of(SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to kick")))
+                        List.of(SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to kick", true)))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: kick");
         SlashCommand ban = SlashCommand.with("ban", "Bans the specified user.",
-                        List.of(SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to ban")))
+                        List.of(SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to ban", true)))
                 .createForServer(server)
                 .join();
 
         System.out.println("Registered command: ban");
         SlashCommand changeNick = SlashCommand.with("nick", "Lets you change the nickname of the specified user",
                         List.of(
-                                SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to change the nickname of"),
-                                SlashCommandOption.createWithOptions(SlashCommandOptionType.STRING, "Nickname", "The name to change it to")))
+                                SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to change the nickname of", true),
+                                SlashCommandOption.create(SlashCommandOptionType.STRING, "Nickname", "The name to change it to", true)))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: nick");
         SlashCommand novc = SlashCommand.with("novc", "Blocks the specified user from entering a voice chat.",
                         List.of(
-                                SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to block")))
+                                SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to block", true)))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: novc");
         SlashCommand yesvc = SlashCommand.with("yesvc", "Allows the specified user to enter a voice chat.",
                         List.of(
-                                SlashCommandOption.createWithOptions(SlashCommandOptionType.USER, "User", "The user to allow")))
+                                SlashCommandOption.create(SlashCommandOptionType.USER, "User", "The user to allow", true)))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: yesvc");
         SlashCommand clear = SlashCommand.with("clear", "Clears the messages in the current text channel.",
                         List.of(
-                                SlashCommandOption.createWithOptions(SlashCommandOptionType.INTEGER, "Messages", "The number of messages to clear")))
+                                SlashCommandOption.create(SlashCommandOptionType.INTEGER, "Messages", "The number of messages to clear", true)))
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: clear");
