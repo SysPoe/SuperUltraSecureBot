@@ -33,19 +33,96 @@ public class Main {
         System.out.println("Loading listeners...");
         loadListeners();
         loadAuditLogListeners();
+        initCurrency();
         System.out.println("Loaded listeners.");
         // System.out.println("Adding shutdown listener...");
         // addShutdownListener();
         // System.out.println("Added shutdown listener.");
-        // System.out.println("Registering slash commands...");
+        System.out.println("Registering slash commands...");
         // registerSlashCommands();
-        // System.out.println("Registered slash commands.");
+        registerCurrencySlashCommands();
+        System.out.println("Registered slash commands.");
+    }
+    protected static void save() {
+        try {
+            FileWriter fileWriter = new FileWriter("G:\\projects\\SuperUltraSecureBot\\out\\artifacts\\SuperUltraSecureBot_jar\\config.json", false);
+            fileWriter.write(new Gson().toJson(config, Config.class));
+            fileWriter.close();
+        } catch (IOException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+        }
+    }
+
+    private static void initCurrency() {
+        api.addInteractionCreateListener(interactionCreateEvent -> {
+            SlashCommandInteraction interaction = interactionCreateEvent.getSlashCommandInteraction().get();
+            String commandName = interaction.getCommandName().toLowerCase();
+
+            long userID = interaction.getUser().getId();
+
+            switch (commandName) {
+                case "withdraw": {
+                    CurrencyUser user = CurrencyUser.getCurrencyUser(userID);
+                    int index = config.currencyUsers.indexOf(user);
+                    int toTransfer = interaction.getFirstOptionIntValue().get();
+                    if(user == null) {
+                        createNewCurrencyUser(userID, 0, 0);
+                        interaction.createImmediateResponder().setContent("Withdrew 0 coins from your bank.").respond();
+                    }
+                    else {
+                        long transferred = user.transferFromBank(toTransfer);
+                        config.currencyUsers.set(index, user);
+                        if(transferred != 1) interaction.createImmediateResponder().setContent("Withdrew "+transferred+" coins from your bank.\nNew bank balance: "+user.getBank()+"\nNew wallet balance: "+user.getWallet()).respond();
+                        else interaction.createImmediateResponder().setContent("Withdrew "+transferred+" coin from your bank.\nNew bank balance: "+user.getBank()+"\nNew wallet balance: "+user.getWallet()).respond();
+                    }
+                }
+                case "deposit": {
+                    CurrencyUser user = CurrencyUser.getCurrencyUser(userID);
+                    int toTransfer = interaction.getFirstOptionIntValue().get();
+                    if(user == null) {
+                        createNewCurrencyUser(userID, 0, 0);
+                        interaction.createImmediateResponder().addEmbed(new EmbedBuilder()
+                                .setAuthor(api.getYourself())
+                                .setTitle("Deposited 0 coins into your bank")
+                                .setDescription("**Wallet: **"+E.c+" 0\n**Bank: **"+E.c+" 0")).respond();
+                    }
+                    else {
+                        int index = config.currencyUsers.indexOf(user);
+                        long transferred = user.transferToBank(toTransfer);
+                        config.currencyUsers.set(index, user);
+                        if(transferred != 1) {
+                            interaction.createImmediateResponder().addEmbed(new EmbedBuilder()
+                                    .setAuthor(api.getYourself())
+                                    .setTitle("Deposited "+transferred+" coins into your bank.")
+                                    .setDescription("**Wallet: **"+user.getWalletAsString()+"\n**Bank: **"+user.getBankAsString())).respond();
+                        }
+                        else {
+                            interaction.createImmediateResponder().addEmbed(new EmbedBuilder()
+                                    .setAuthor(api.getYourself())
+                                    .setTitle("Deposited "+transferred+" coin into your bank.")
+                                    .setDescription("**Wallet: **"+user.getWalletAsString()+"\n**Bank: **"+user.getBankAsString())).respond();
+                        }
+                    }
+                }
+            }
+        });
+    }
+    private static void createNewCurrencyUser(long userId, long wallet, long bank) {
+        config.currencyUsers.add(new CurrencyUser(userId, wallet, bank));
+        save();
     }
 
     private static void loadAuditLogListeners() {
         // Messages
         api.addMessageDeleteListener(messageDeleteEvent -> {
-           if(messageDeleteEvent.getChannel().asTextChannel().get() != api.getServerById(config.auditLogServerId).get().getTextChannelById(config.auditLogChannelId).get()) messageDeleted(messageDeleteEvent.getMessageAuthor().get().getId(), messageDeleteEvent.getChannel().getId(), messageDeleteEvent.getMessage().get().getContent());
+           if(messageDeleteEvent.getChannel().asTextChannel().get()
+                   != api.getServerById(config.auditLogServerId).get()
+                   .getTextChannelById(config.auditLogChannelId).get()) {
+               messageDeleted(messageDeleteEvent.getMessageAuthor().get().getId(),
+                       messageDeleteEvent.getChannel().getId(),
+                       messageDeleteEvent.getMessage().get().getContent());
+           }
         });
         api.addMessageEditListener(messageEditEvent -> {
             messageEdited(messageEditEvent.getMessageAuthor().get().getId(), messageEditEvent.getChannel().getId(), messageEditEvent.getOldContent().get(), messageEditEvent.getNewContent());
@@ -97,7 +174,6 @@ public class Main {
             userRoleAdd(userRoleAddEvent.getUser().getId(), userRoleAddEvent.getRole());
         });
     }
-
     private static String getChangedPerms(Permissions oldPermissions, Permissions newPermissions) {
         List<PermissionType> oldAllowedPerms = oldPermissions.getAllowedPermission().stream().toList();
         List<PermissionType> newAllowedPerms = newPermissions.getAllowedPermission().stream().toList();
@@ -127,16 +203,6 @@ public class Main {
     }
     private static void addShutdownListener() {
         // Runtime.getRuntime().addShutdownHook(new Thread(Main::save));
-    }
-    private static void save() {
-        try {
-            FileWriter fileWriter = new FileWriter("G:\\projects\\SuperUltraSecureBot\\out\\artifacts\\SuperUltraSecureBot_jar\\config.json", false);
-            fileWriter.write(new Gson().toJson(config, Config.class));
-            fileWriter.close();
-        } catch (IOException e) {
-            System.out.println("An error occurred.");
-            e.printStackTrace();
-        }
     }
     private static void registerSlashCommands() throws ExecutionException, InterruptedException {
         api.getGlobalSlashCommands().get().forEach(SlashCommand::deleteGlobal);
@@ -204,6 +270,21 @@ public class Main {
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: clear");
+    }
+    private static void registerCurrencySlashCommands() {
+        Server server = api.getServerById(serverId).get();
+        SlashCommand withdraw = SlashCommand.with("withdraw", "Withdraws the specified amount of currency from your bank.",
+                        List.of(
+                                SlashCommandOption.create(SlashCommandOptionType.INTEGER, "Amount", "The amount to withdraw", true)))
+                .createForServer(server)
+                .join();
+        System.out.println("Registered command: withdraw");
+        SlashCommand deposit = SlashCommand.with("deposit", "Deposits the specified amount of currency to your bank.",
+                        List.of(
+                                SlashCommandOption.create(SlashCommandOptionType.INTEGER, "Amount", "The amount to deposit", true)))
+                .createForServer(server)
+                .join();
+        System.out.println("Registered command: deposit");
     }
     private static void loadListeners() {
         api.addServerVoiceChannelMemberJoinListener(event -> {
@@ -279,7 +360,11 @@ public class Main {
                                     ArrayList<String> muted = new ArrayList<>(List.of(config.muted));
                                     muted.add(user.toLowerCase());
                                     config.muted = oA2sA(muted.toArray());
-                                    slashCommandInteraction.createImmediateResponder().setContent("Muted <@"+id+">.").respond();
+                                    slashCommandInteraction.createImmediateResponder().addEmbed(new EmbedBuilder()
+                                            .setAuthor(api.getYourself())
+                                            .setColor(Color.RED)
+                                            .setTitle("Muted user")
+                                            .setDescription(":white_check_mark: <@"+id+"> has been muted.")).respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
                             } else slashCommandInteraction.createImmediateResponder().setContent("<@" + id + "> is already muted!").respond();
@@ -303,7 +388,11 @@ public class Main {
                                     ArrayList<String> muted = new ArrayList<>(List.of(config.muted));
                                     muted.remove(user.toLowerCase());
                                     config.muted = oA2sA(muted.toArray());
-                                    slashCommandInteraction.createImmediateResponder().setContent("Un-muted <@"+id+">.").respond();
+                                    slashCommandInteraction.createImmediateResponder().addEmbed(new EmbedBuilder()
+                                            .setAuthor(api.getYourself())
+                                            .setColor(Color.GREEN)
+                                            .setTitle("Un-muted user")
+                                            .setDescription(":white_check_mark: <@"+id+"> has been un-muted.")).respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
                             } else slashCommandInteraction.createImmediateResponder().setContent("That user isn't muted!").respond();
