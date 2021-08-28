@@ -1,3 +1,8 @@
+package currency;
+// Emojis that are used.
+
+import java.util.ArrayList;
+
 public class CurrencyUser {
     private long wallet;
     private long bank;
@@ -26,20 +31,18 @@ public class CurrencyUser {
         long toTransfer = Math.min(this.wallet, value);
         this.incrementWallet(toTransfer*-1);
         this.incrementBank(toTransfer);
-        Main.save();
         return toTransfer;
     }
     public long transferFromBank(long value) {
         long toTransfer = Math.min(this.bank, value);
         this.incrementBank(toTransfer*-1);
         this.incrementWallet(toTransfer);
-        Main.save();
         return toTransfer;
     }
 
-    public static CurrencyUser getCurrencyUser(long userId) {
+    public static CurrencyUser getCurrencyUser(long userId, ArrayList<CurrencyUser> currencyUsers) {
         CurrencyUser user = null;
-        for (CurrencyUser currencyUser : Main.config.currencyUsers) {
+        for (CurrencyUser currencyUser : currencyUsers) {
             if(currencyUser.getUserId() == userId) user = currencyUser;
         }
         return user;

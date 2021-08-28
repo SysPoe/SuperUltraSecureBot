@@ -1,3 +1,5 @@
+import currency.CurrencyUser;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,9 +12,8 @@ public class Config {
     public ArrayList<WarnedUser> warnedUsers;
     public long auditLogChannelId;
     public long auditLogServerId;
-    public long centralChatServerId;
-    public long centralChatChannelId;
-    public Config(ArrayList<Long> muted, ArrayList<String> blockedWords, ArrayList<Long> bypass, ArrayList<Long> novoicechat, CurrencyUser[] currencyUsers, long auditLogChannelId, long auditLogServerId, long centralChatChannelId, long centralChatServerId, ArrayList<WarnedUser> warnedUsers) {
+    public String token;
+    public Config(ArrayList<Long> muted, ArrayList<String> blockedWords, ArrayList<Long> bypass, ArrayList<Long> novoicechat, CurrencyUser[] currencyUsers, long auditLogChannelId, long auditLogServerId, ArrayList<WarnedUser> warnedUsers, String token) {
         this.muted = muted;
         this.blockedWords = blockedWords;
         this.bypass = bypass;
@@ -20,8 +21,7 @@ public class Config {
         this.currencyUsers = new ArrayList<>(List.of(currencyUsers));
         this.auditLogChannelId = auditLogChannelId;
         this.auditLogServerId = auditLogServerId;
-        this.centralChatServerId = centralChatServerId;
-        this.centralChatChannelId = centralChatChannelId;
         this.warnedUsers = warnedUsers;
+        this.token = token;
     }
 }

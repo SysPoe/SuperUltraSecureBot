@@ -1,4 +1,7 @@
 import com.google.gson.Gson;
+import currency.CurrencyUser;
+import currency.E;
+import currency.Shop;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.activity.Activity;
@@ -34,12 +37,13 @@ public class Main {
     static final long serverId = 821261855753371649L;
     static String commandPrefix = "&";
     public static void main(String[] args) throws ExecutionException, InterruptedException {
-        api = new DiscordApiBuilder()
-                .setToken(Token.token)
-                .login().join();
-
         System.out.println("Loading config...");
         loadConfig();
+        System.out.println("Logging in...");
+        api = new DiscordApiBuilder()
+                .setToken(config.token)
+                .login().join();
+
         System.out.println("Loading listeners...");
         loadListeners();
         loadAuditLogListeners();
@@ -55,7 +59,7 @@ public class Main {
         // System.out.println("Registered slash commands.");
     }
 
-    protected static void save() {
+    public static void save() {
         try {
             FileWriter fileWriter = new FileWriter("G:\\projects\\SuperUltraSecureBot\\out\\artifacts\\SuperUltraSecureBot_jar\\config.json", false);
             fileWriter.write(new Gson().toJson(config, Config.class));
@@ -75,7 +79,7 @@ public class Main {
 
             switch (commandName) {
                 case "withdraw": {
-                    CurrencyUser user = CurrencyUser.getCurrencyUser(userID);
+                    CurrencyUser user = CurrencyUser.getCurrencyUser(userID, config.currencyUsers);
                     int index = config.currencyUsers.indexOf(user);
                     int toTransfer = interaction.getFirstOptionIntValue().get();
                     if(user == null) {
@@ -84,24 +88,26 @@ public class Main {
                     }
                     else {
                         long transferred = user.transferFromBank(toTransfer);
+                        save();
                         config.currencyUsers.set(index, user);
                         if(transferred != 1) interaction.createImmediateResponder().setContent("Withdrew "+transferred+" coins from your bank.\nNew bank balance: "+user.getBank()+"\nNew wallet balance: "+user.getWallet()).respond();
                         else interaction.createImmediateResponder().setContent("Withdrew "+transferred+" coin from your bank.\nNew bank balance: "+user.getBank()+"\nNew wallet balance: "+user.getWallet()).respond();
                     }
                 }
                 case "deposit": {
-                    CurrencyUser user = CurrencyUser.getCurrencyUser(userID);
+                    CurrencyUser user = CurrencyUser.getCurrencyUser(userID, config.currencyUsers);
                     int toTransfer = interaction.getFirstOptionIntValue().get();
                     if(user == null) {
                         createNewCurrencyUser(userID, 0, 0);
                         interaction.createImmediateResponder().addEmbed(new EmbedBuilder()
                                 .setAuthor(api.getYourself())
                                 .setTitle("Deposited 0 coins into your bank")
-                                .setDescription("**Wallet: **"+E.c+" 0\n**Bank: **"+E.c+" 0")).respond();
+                                .setDescription("**Wallet: **"+ E.c+" 0\n**Bank: **"+E.c+" 0")).respond();
                     }
                     else {
                         int index = config.currencyUsers.indexOf(user);
                         long transferred = user.transferToBank(toTransfer);
+                        save();
                         config.currencyUsers.set(index, user);
                         if(transferred != 1) {
                             interaction.createImmediateResponder().addEmbed(new EmbedBuilder()
@@ -430,7 +436,7 @@ public class Main {
                     try {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
-                            if (config.bypass.contains(id)) {
+                            if (!config.bypass.contains(id)) {
                                 config.bypass.add(id);
                                 slashCommandInteraction.createImmediateResponder().setContent("Added <@"+id+"> to the bypass list.").respond();
                                 save();
@@ -556,14 +562,6 @@ public class Main {
                     event.getMessage().delete("User muted.");
                     doCentralMessages = true;
                 }
-                // Central Chat
-                if (!doCentralMessages && !event.getMessageContent().startsWith(commandPrefix)) {
-                    if(api.getServerChannelById(event.getChannel().getId()).get().getOverwrittenPermissions().get(821266086459736075L).getAllowedPermission().contains(PermissionType.READ_MESSAGES)) {
-                        Server server = api.getServerById(config.centralChatServerId).get();
-                        TextChannel channel = server.getTextChannelById(config.centralChatChannelId).get();
-                        channel.sendMessage("@" + event.getMessageAuthor().getDisplayName() + " in <#" + event.getChannel().getId() + "> says: " + event.getMessageContent()).join();
-                    }
-                }
             }
         });
     }
@@ -575,6 +573,10 @@ public class Main {
                 String author = messageCreateEvent.getMessageAuthor().getName()+"#"+messageCreateEvent.getMessageAuthor().getDiscriminator().get();
                 try {
                     switch (command) {
+                        case "shop": {
+                            messageCreateEvent.getMessage().reply(Shop.getShop()).join();
+                            break;
+                        }
                         case "warn": {
                             String userId = message.toLowerCase().split(" ")[1].replaceFirst("<@!", "").replaceFirst(">", "");
                             String reason;
@@ -643,7 +645,7 @@ public class Main {
         return config.novoicechat.contains(api.getUserById(id).get().getName().toLowerCase(Locale.ROOT));
     }
     private static boolean userIsBypassing(long id) throws ExecutionException, InterruptedException {
-        return config.bypass.contains(api.getUserById(id).get().getName().toLowerCase(Locale.ROOT));
+        return config.bypass.contains(id);
     }
     private static boolean userHasAdministrator(long id) throws ExecutionException, InterruptedException {
         AtomicBoolean hasPerms = new AtomicBoolean(false);
