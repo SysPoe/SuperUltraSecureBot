@@ -1,7 +1,4 @@
 import com.google.gson.Gson;
-import currency.CurrencyUser;
-import currency.E;
-import currency.Shop;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.activity.Activity;
@@ -47,7 +44,6 @@ public class Main {
         System.out.println("Loading listeners...");
         loadListeners();
         loadAuditLogListeners();
-        initCurrency();
         loadOtherCommandListeners();
         System.out.println("Loaded listeners.");
         // System.out.println("Adding shutdown listener...");
@@ -68,67 +64,6 @@ public class Main {
             System.out.println("An error occurred.");
             e.printStackTrace();
         }
-    }
-
-    private static void initCurrency() {
-        api.addInteractionCreateListener(interactionCreateEvent -> {
-            SlashCommandInteraction interaction = interactionCreateEvent.getSlashCommandInteraction().get();
-            String commandName = interaction.getCommandName().toLowerCase();
-
-            long userID = interaction.getUser().getId();
-
-            switch (commandName) {
-                case "withdraw": {
-                    CurrencyUser user = CurrencyUser.getCurrencyUser(userID, config.currencyUsers);
-                    int index = config.currencyUsers.indexOf(user);
-                    int toTransfer = interaction.getFirstOptionIntValue().get();
-                    if(user == null) {
-                        createNewCurrencyUser(userID, 0, 0);
-                        interaction.createImmediateResponder().setContent("Withdrew 0 coins from your bank.").respond();
-                    }
-                    else {
-                        long transferred = user.transferFromBank(toTransfer);
-                        save();
-                        config.currencyUsers.set(index, user);
-                        if(transferred != 1) interaction.createImmediateResponder().setContent("Withdrew "+transferred+" coins from your bank.\nNew bank balance: "+user.getBank()+"\nNew wallet balance: "+user.getWallet()).respond();
-                        else interaction.createImmediateResponder().setContent("Withdrew "+transferred+" coin from your bank.\nNew bank balance: "+user.getBank()+"\nNew wallet balance: "+user.getWallet()).respond();
-                    }
-                }
-                case "deposit": {
-                    CurrencyUser user = CurrencyUser.getCurrencyUser(userID, config.currencyUsers);
-                    int toTransfer = interaction.getFirstOptionIntValue().get();
-                    if(user == null) {
-                        createNewCurrencyUser(userID, 0, 0);
-                        interaction.createImmediateResponder().addEmbed(new EmbedBuilder()
-                                .setAuthor(api.getYourself())
-                                .setTitle("Deposited 0 coins into your bank")
-                                .setDescription("**Wallet: **"+ E.c+" 0\n**Bank: **"+E.c+" 0")).respond();
-                    }
-                    else {
-                        int index = config.currencyUsers.indexOf(user);
-                        long transferred = user.transferToBank(toTransfer);
-                        save();
-                        config.currencyUsers.set(index, user);
-                        if(transferred != 1) {
-                            interaction.createImmediateResponder().addEmbed(new EmbedBuilder()
-                                    .setAuthor(api.getYourself())
-                                    .setTitle("Deposited "+transferred+" coins into your bank.")
-                                    .setDescription("**Wallet: **"+user.getWalletAsString()+"\n**Bank: **"+user.getBankAsString())).respond();
-                        }
-                        else {
-                            interaction.createImmediateResponder().addEmbed(new EmbedBuilder()
-                                    .setAuthor(api.getYourself())
-                                    .setTitle("Deposited "+transferred+" coin into your bank.")
-                                    .setDescription("**Wallet: **"+user.getWalletAsString()+"\n**Bank: **"+user.getBankAsString())).respond();
-                        }
-                    }
-                }
-            }
-        });
-    }
-    private static void createNewCurrencyUser(long userId, long wallet, long bank) {
-        config.currencyUsers.add(new CurrencyUser(userId, wallet, bank));
-        save();
     }
 
     private static void loadAuditLogListeners() {
@@ -573,10 +508,6 @@ public class Main {
                 String author = messageCreateEvent.getMessageAuthor().getName()+"#"+messageCreateEvent.getMessageAuthor().getDiscriminator().get();
                 try {
                     switch (command) {
-                        case "shop": {
-                            messageCreateEvent.getMessage().reply(Shop.getShop()).join();
-                            break;
-                        }
                         case "warn": {
                             String userId = message.toLowerCase().split(" ")[1].replaceFirst("<@!", "").replaceFirst(">", "");
                             String reason;
