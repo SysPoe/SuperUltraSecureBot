@@ -1,5 +1,3 @@
-import org.jetbrains.annotations.Nullable;
-
 public class CurrencyUser {
     private long wallet;
     private long bank;
@@ -39,7 +37,7 @@ public class CurrencyUser {
         return toTransfer;
     }
 
-    public static @Nullable CurrencyUser getCurrencyUser(long userId) {
+    public static CurrencyUser getCurrencyUser(long userId) {
         CurrencyUser user = null;
         for (CurrencyUser currencyUser : Main.config.currencyUsers) {
             if(currencyUser.getUserId() == userId) user = currencyUser;

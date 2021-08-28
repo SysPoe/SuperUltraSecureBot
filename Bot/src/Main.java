@@ -3,18 +3,27 @@ import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.activity.Activity;
 import org.javacord.api.entity.channel.TextChannel;
+import org.javacord.api.entity.message.Message;
+import org.javacord.api.entity.message.MessageSet;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
-import org.javacord.api.entity.permission.*;
+import org.javacord.api.entity.permission.PermissionType;
+import org.javacord.api.entity.permission.Permissions;
+import org.javacord.api.entity.permission.Role;
 import org.javacord.api.entity.server.Server;
-import org.javacord.api.interaction.*;
+import org.javacord.api.entity.user.User;
+import org.javacord.api.interaction.SlashCommand;
+import org.javacord.api.interaction.SlashCommandInteraction;
+import org.javacord.api.interaction.SlashCommandOption;
+import org.javacord.api.interaction.SlashCommandOptionType;
 
 import java.awt.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.*;
 import java.util.List;
+import java.util.Locale;
+import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -23,6 +32,7 @@ public class Main {
     static DiscordApi api;
     static Config config;
     static final long serverId = 821261855753371649L;
+    static String commandPrefix = "&";
     public static void main(String[] args) throws ExecutionException, InterruptedException {
         api = new DiscordApiBuilder()
                 .setToken(Token.token)
@@ -34,15 +44,17 @@ public class Main {
         loadListeners();
         loadAuditLogListeners();
         initCurrency();
+        loadOtherCommandListeners();
         System.out.println("Loaded listeners.");
         // System.out.println("Adding shutdown listener...");
         // addShutdownListener();
         // System.out.println("Added shutdown listener.");
-        System.out.println("Registering slash commands...");
+        // System.out.println("Registering slash commands...");
         // registerSlashCommands();
-        registerCurrencySlashCommands();
-        System.out.println("Registered slash commands.");
+        // registerCurrencySlashCommands();
+        // System.out.println("Registered slash commands.");
     }
+
     protected static void save() {
         try {
             FileWriter fileWriter = new FileWriter("G:\\projects\\SuperUltraSecureBot\\out\\artifacts\\SuperUltraSecureBot_jar\\config.json", false);
@@ -136,7 +148,7 @@ public class Main {
             serverChannelCreatedOrDeleted(serverChannelCreateEvent.getChannel().getName(), "creted");
         });
         api.addServerChannelChangeOverwrittenPermissionsListener(serverChannelChangeOverwrittenPermissionsEvent ->   {
-            serverOverridePermsChange(serverChannelChangeOverwrittenPermissionsEvent.getChannel().getId(), getChangedPerms(serverChannelChangeOverwrittenPermissionsEvent.getOldPermissions(), serverChannelChangeOverwrittenPermissionsEvent.getNewPermissions()));
+            serverOverridePermsChange(serverChannelChangeOverwrittenPermissionsEvent.getChannel().getId(), getChangedPerms(serverChannelChangeOverwrittenPermissionsEvent.getOldPermissions(), serverChannelChangeOverwrittenPermissionsEvent.getNewPermissions()), serverChannelChangeOverwrittenPermissionsEvent.getRole().get().getId());
         });
 
         // Text Channels
@@ -270,6 +282,12 @@ public class Main {
                 .createForServer(server)
                 .join();
         System.out.println("Registered command: clear");
+        SlashCommand givemerank = SlashCommand.with("givemerank", "Gives you the rank",
+                        List.of(
+                                SlashCommandOption.create(SlashCommandOptionType.ROLE, "Role", "The role to give you.", true)))
+                .createForServer(server)
+                .join();
+        System.out.println("Registered command: givemerank");
     }
     private static void registerCurrencySlashCommands() {
         Server server = api.getServerById(serverId).get();
@@ -308,6 +326,14 @@ public class Main {
             }
             catch (Exception e) { System.err.println(e.getMessage()); e.printStackTrace(); }
             switch (cmdName) {
+                case "givemerank": {
+                    Role r = api.getRoleById(slashCommandInteraction.getFirstOptionStringValue().get()).get();
+                    slashCommandInteraction.getUser().addRole(r).join();
+                    slashCommandInteraction.createImmediateResponder()
+                            .setContent("There ya go!")
+                            .respond();
+                    break;
+                }
                 case "ping": {
                     slashCommandInteraction.createImmediateResponder()
                             .setContent("Pong!")
@@ -318,8 +344,8 @@ public class Main {
                     try {
                         long id = slashCommandInteraction.getUser().getId();
                             if (userHasAdministrator(id) || userIsBypassing(id)) {
-                                slashCommandInteraction.getChannel().get().getMessages(slashCommandInteraction.getFirstOptionIntValue().get()).get().deleteAll().join();
-                                slashCommandInteraction.createImmediateResponder().setContent("Cleared " + slashCommandInteraction.getFirstOptionIntValue().get() + " messages.").respond();
+                                slashCommandInteraction.getChannel().get().getMessages(slashCommandInteraction.getFirstOptionIntValue().get()).get().stream().toList().forEach(Message::delete);
+                                slashCommandInteraction.createImmediateResponder().setContent("Clearing " + slashCommandInteraction.getFirstOptionIntValue().get() + " messages. This may take a while!").respond();
                             }
                             else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
                     } catch (Exception e) {
@@ -334,7 +360,7 @@ public class Main {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
                             String user = api.getUserById(id).get().getName();
                             String newName = slashCommandInteraction.getSecondOptionStringValue().get();
-                            if (!List.of(config.bypass).contains(user.toLowerCase())) {
+                            if (config.bypass.contains(user.toLowerCase())) {
                                 if (!userHasAdministrator(id) && !userIsBypassing(id)) {
                                     api.getUserById(id).get().updateNickname(slashCommandInteraction.getServer().get(), newName);
                                     slashCommandInteraction.createImmediateResponder().setContent("Set <@"+id+">'s nickname to "+newName).respond();
@@ -354,12 +380,9 @@ public class Main {
                     try {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
-                            String user = api.getUserById(id).get().getName();
-                            if (!List.of(config.muted).contains(user.toLowerCase())) {
+                            if (!config.muted.contains(id)) {
                                 if (!userHasAdministrator(id) && !userIsBypassing(id)) {
-                                    ArrayList<String> muted = new ArrayList<>(List.of(config.muted));
-                                    muted.add(user.toLowerCase());
-                                    config.muted = oA2sA(muted.toArray());
+                                    config.muted.add(id);
                                     slashCommandInteraction.createImmediateResponder().addEmbed(new EmbedBuilder()
                                             .setAuthor(api.getYourself())
                                             .setColor(Color.RED)
@@ -382,12 +405,9 @@ public class Main {
                     try {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
-                            String user = api.getUserById(id).get().getName();
-                            if (List.of(config.muted).contains(user.toLowerCase())) {
+                            if (config.muted.contains(id)) {
                                 if (!userHasAdministrator(id) && !userIsBypassing(id)) {
-                                    ArrayList<String> muted = new ArrayList<>(List.of(config.muted));
-                                    muted.remove(user.toLowerCase());
-                                    config.muted = oA2sA(muted.toArray());
+                                    config.muted.remove(id);
                                     slashCommandInteraction.createImmediateResponder().addEmbed(new EmbedBuilder()
                                             .setAuthor(api.getYourself())
                                             .setColor(Color.GREEN)
@@ -410,11 +430,8 @@ public class Main {
                     try {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
-                            String user = api.getUserById(id).get().getName();
-                            if (!List.of(config.bypass).contains(user.toLowerCase())) {
-                                ArrayList<String> bypass = new ArrayList<>(List.of(config.bypass));
-                                bypass.add(user.toLowerCase());
-                                config.bypass = oA2sA(bypass.toArray());
+                            if (config.bypass.contains(id)) {
+                                config.bypass.add(id);
                                 slashCommandInteraction.createImmediateResponder().setContent("Added <@"+id+"> to the bypass list.").respond();
                                 save();
                             } else slashCommandInteraction.createImmediateResponder().setContent("<@" + id + "> is already in the bypass list!").respond();
@@ -432,12 +449,9 @@ public class Main {
                     try {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
-                            String user = api.getUserById(id).get().getName();
-                            if (List.of(config.bypass).contains(user.toLowerCase())) {
+                            if (config.bypass.contains(id)) {
                                 if (!userHasAdministrator(id)) {
-                                    ArrayList<String> bypass = new ArrayList<>(List.of(config.bypass));
-                                    bypass.remove(user.toLowerCase());
-                                    config.bypass = oA2sA(bypass.toArray());
+                                    config.bypass.remove(id);
                                     slashCommandInteraction.createImmediateResponder().setContent("Removed <@"+id+"> from the bypass list.").respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
@@ -457,7 +471,7 @@ public class Main {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
                             String user = api.getUserById(id).get().getName();
-                            if (!List.of(config.bypass).contains(user.toLowerCase())) {
+                            if (!config.bypass.contains(user.toLowerCase())) {
                                 if (!userHasAdministrator(id) && !userIsBypassing(id)) {
                                     if (cmdName.equals("kick")) {
                                         kick(id, slashCommandInteraction.getServer().get());
@@ -484,10 +498,8 @@ public class Main {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
                             String user = api.getUserById(id).get().getName();
-                            if (!List.of(config.novoicechat).contains(user.toLowerCase())) {
-                                ArrayList<String> novoicechat = new ArrayList<>(List.of(config.novoicechat));
-                                novoicechat.add(user.toLowerCase());
-                                config.novoicechat = oA2sA(novoicechat.toArray());
+                            if (!config.novoicechat.contains(id)) {
+                                config.novoicechat.add(id);
                                 slashCommandInteraction.createImmediateResponder().setContent("Added <@"+id+"> to the block list.").respond();
                                 save();
                             } else slashCommandInteraction.createImmediateResponder().setContent("<@" + id + "> is already in the block list!").respond();
@@ -506,11 +518,9 @@ public class Main {
                         if (config != null) {
                             long id = Long.parseLong(slashCommandInteraction.getFirstOptionStringValue().get());
                             String user = api.getUserById(id).get().getName();
-                            if (List.of(config.novoicechat).contains(user.toLowerCase())) {
+                            if (config.novoicechat.contains(id)) {
                                 if (!userHasAdministrator(id)) {
-                                    ArrayList<String> novoicechat = new ArrayList<>(List.of(config.novoicechat));
-                                    novoicechat.remove(user.toLowerCase());
-                                    config.novoicechat = oA2sA(novoicechat.toArray());
+                                    config.novoicechat.remove(id);
                                     slashCommandInteraction.createImmediateResponder().setContent("Removed <@"+id+"> from the block list.").respond();
                                     save();
                                 } else slashCommandInteraction.createImmediateResponder().setContent("You do not have permission to do that!").respond();
@@ -528,13 +538,98 @@ public class Main {
             }
         });
         api.addMessageCreateListener(event -> {
-            if(!List.of(config.bypass).contains(event.getMessageAuthor().getName())) {
-                boolean canSend = true;
-                for (String blockedWord : config.blockedWords) if(event.getMessage().getContent().toLowerCase().contains(blockedWord.toLowerCase())) canSend = false;
-                if(!canSend) event.getMessage().delete("Contains a blocked word");
+            if(!event.getMessageAuthor().isBotUser()) {
+                boolean doCentralMessages = false;
+                // Blocked users
+                if (!config.bypass.contains(event.getMessageAuthor().getId())) {
+                    boolean canSend = true;
+                    for (String blockedWord : config.blockedWords)
+                        if (event.getMessage().getContent().toLowerCase().contains(blockedWord.toLowerCase()))
+                            canSend = false;
+                    if (!canSend) {
+                        event.getMessage().delete("Contains a blocked word");
+                        doCentralMessages = true;
+                    }
+                }
+                // Muted users
+                if (config.muted.contains(event.getMessageAuthor().getId())) {
+                    event.getMessage().delete("User muted.");
+                    doCentralMessages = true;
+                }
+                // Central Chat
+                if (!doCentralMessages && !event.getMessageContent().startsWith(commandPrefix)) {
+                    if(api.getServerChannelById(event.getChannel().getId()).get().getOverwrittenPermissions().get(821266086459736075L).getAllowedPermission().contains(PermissionType.READ_MESSAGES)) {
+                        Server server = api.getServerById(config.centralChatServerId).get();
+                        TextChannel channel = server.getTextChannelById(config.centralChatChannelId).get();
+                        channel.sendMessage("@" + event.getMessageAuthor().getDisplayName() + " in <#" + event.getChannel().getId() + "> says: " + event.getMessageContent()).join();
+                    }
+                }
             }
-            if(List.of(config.muted).contains(event.getMessageAuthor().getName().toLowerCase())) {
-                event.getMessage().delete("User muted.");
+        });
+    }
+    private static void loadOtherCommandListeners() {
+        api.addMessageCreateListener(messageCreateEvent -> {
+            String message = messageCreateEvent.getMessageContent();
+            if(message.startsWith(commandPrefix)) {
+                String command = messageCreateEvent.getMessageContent().toLowerCase().replaceFirst(commandPrefix,"").split(" ")[0];
+                String author = messageCreateEvent.getMessageAuthor().getName()+"#"+messageCreateEvent.getMessageAuthor().getDiscriminator().get();
+                try {
+                    switch (command) {
+                        case "warn": {
+                            String userId = message.toLowerCase().split(" ")[1].replaceFirst("<@!", "").replaceFirst(">", "");
+                            String reason;
+                            reason = message.replaceFirst("&warn <@!"+userId+">", "").replaceFirst(" ", "");
+                            if(reason.equals("")) reason = "unspecified";
+                            User u = api.getUserById(userId).get();
+                            String description;
+                            if(!reason.equals("none")) description = "**You have been warned by "+author+"!\nReason: **"+reason;
+                            else description = "**You have been warned by "+author+"!**";
+                            u.openPrivateChannel().get().sendMessage(new EmbedBuilder()
+                                    .setTitle("You have been warned!")
+                                    .setColor(Color.yellow)
+                                    .setDescription(description)
+                                    .setAuthor(messageCreateEvent.getMessageAuthor()));
+                            WarnedUser.increment(messageCreateEvent.getMessageAuthor().asUser().get());
+                            messageCreateEvent.getMessage().reply(new EmbedBuilder()
+                                    .setAuthor(api.getUserById(userId).get())
+                                    .setColor(Color.yellow)
+                                    .setDescription(":white_check_mark: Warned <@"+userId+">.\nReason: "+reason)).get();
+                            save();
+                            break;
+                        }
+                        case "getwarns": {
+                            String userId = message.toLowerCase().split(" ")[1].replaceFirst("<@!", "").replaceFirst(">", "");
+                            WarnedUser warnedUser = WarnedUser.get(api.getUserById(userId).get());
+                            messageCreateEvent.getMessage().reply("<@"+warnedUser.user + "> has "+warnedUser.warns +" warns.").get();
+                            break;
+                        }
+                        case "clearwarns": {
+                            String userId = message.toLowerCase().split(" ")[1].replaceFirst("<@!", "").replaceFirst(">", "");
+                            WarnedUser user = WarnedUser.get(api.getUserById(userId).get());
+                            user.set(0);
+                            messageCreateEvent.getMessage().reply("Cleared all warnings for <@"+user.user+">").get();
+                            save();
+
+                        }
+                        case "clear": {
+                            MessageSet messages = messageCreateEvent.getChannel().getMessagesAfter(19, 0).get();
+                            if(messages.size() >= 20) {
+                                messageCreateEvent.getMessage().reply(new EmbedBuilder()
+                                        .setAuthor(api.getYourself())
+                                        .setDescription(":negative_squared_cross_mark: Too many messages! Use /clear instead!")).get();
+
+                            }
+                            else {
+                                messageCreateEvent.getChannel().getMessagesAsStream().toList().forEach(Message::delete);
+                                messageCreateEvent.getMessage().reply(new EmbedBuilder()
+                                        .setAuthor(api.getYourself())
+                                        .setDescription(":white_check_mark: Cleared channel!")).get();
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         });
     }
@@ -545,10 +640,10 @@ public class Main {
         server.banUser( api.getUserById(id).get());
     }
     private static boolean userIsVCBlocked(long id) throws ExecutionException, InterruptedException {
-        return List.of(config.novoicechat).contains(api.getUserById(id).get().getName().toLowerCase(Locale.ROOT));
+        return config.novoicechat.contains(api.getUserById(id).get().getName().toLowerCase(Locale.ROOT));
     }
     private static boolean userIsBypassing(long id) throws ExecutionException, InterruptedException {
-        return List.of(config.bypass).contains(api.getUserById(id).get().getName().toLowerCase(Locale.ROOT));
+        return config.bypass.contains(api.getUserById(id).get().getName().toLowerCase(Locale.ROOT));
     }
     private static boolean userHasAdministrator(long id) throws ExecutionException, InterruptedException {
         AtomicBoolean hasPerms = new AtomicBoolean(false);
@@ -634,7 +729,7 @@ public class Main {
                     .setAuthor(api.getYourself())
                     .setColor(Color.RED)
                     .setTitle("Channel "+actionType+" edited")
-                    .setDescription("**<#"+channelId+">'s "+actionType+" has been changed!\n" +
+                    .setDescription("**<#"+channelId+">'s "+actionType+" has been changed!**\n" +
                             "**Old value: **"+oldValue+"\n" +
                             "**New value: **"+newValue)
             ).join();
@@ -643,13 +738,13 @@ public class Main {
             e.printStackTrace();
         }
     }
-    private static void serverOverridePermsChange(long channelId, String changes) {
+    private static void serverOverridePermsChange(long channelId, String changes, long roleId) {
         TextChannel channel = api.getServerById(config.auditLogServerId).get().getTextChannelById(config.auditLogChannelId).get();
         channel.sendMessage(new EmbedBuilder()
                 .setAuthor(api.getYourself())
                 .setColor(Color.RED)
-                .setTitle("<#"+channelId+">'s override permissions have been edited")
-                .setDescription("**Changes: **"+changes+"\n")
+                .setTitle("Override perms have been changed!")
+                .setDescription("**<#"+channelId+">'s override permissions for <@&"+roleId+"> have been edited\nChanges: **"+changes+"\n")
         ).join();
     }
     private static void inviteCreated(long channelId, long inviterId, String url) {
